@@ -1,6 +1,9 @@
 pipeline {
-    label 'windows-agent'
-
+    agent {
+        node {
+            label 'windows-agent'
+        }
+    }
     parameters {
         string(
             name: 'TARGET_ROOT',
