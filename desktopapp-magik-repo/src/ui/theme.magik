@@ -1,3 +1,4 @@
+# test_change
 # theme.magik (sample)
 _method apply_theme()
   _print("Applying default theme...")
