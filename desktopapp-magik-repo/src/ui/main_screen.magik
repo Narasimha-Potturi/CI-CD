@@ -1,3 +1,4 @@
+# test_change
 # main_screen.magik (sample)
 _method load_main_screen()
   _print("Loading Main Screen...")
