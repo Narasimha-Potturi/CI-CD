@@ -1,5 +1,5 @@
 # invoice.magik (sample)
-# invoice.magik (sample2)
+# invoice.magik (sample3)
 _method generate_invoice(order_id)
   _print("Generating invoice for order: " + order_id)
   _return "INV-" + order_id.as_string()
