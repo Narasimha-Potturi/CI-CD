@@ -80,16 +80,14 @@ pipeline {
                 echo ===== Deploying Changed Files to ${params.TARGET_ROOT} =====
                 type ${CHANGE_FILE}
 
-                for /f "usebackq delims=" %%f in ("${CHANGE_FILE}") do (
-                    echo Deploying %%f
-
-                    powershell -Command ^
-                    "\\$src='%%f'; ^
-                     \\$dest='${params.TARGET_ROOT}\\\\' + \\$src; ^
-                     \\$destDir=Split-Path \\$dest -Parent; ^
-                     if (!(Test-Path \\$destDir)) { New-Item -ItemType Directory -Path \\$destDir -Force | Out-Null }; ^
-                     Copy-Item -Path \\$src -Destination \\$dest -Force"
-                )
+                powershell -NoProfile -ExecutionPolicy Bypass -Command ^
+                "Get-Content '${CHANGE_FILE}' | ForEach-Object { ^
+                    Write-Host ('Deploying ' + $_); ^
+                    $dest = '${params.TARGET_ROOT}\\\\' + $_; ^
+                    $destDir = Split-Path $dest -Parent; ^
+                    if (!(Test-Path $destDir)) { New-Item -ItemType Directory -Path $destDir -Force | Out-Null }; ^
+                    Copy-Item -Path $_ -Destination $dest -Force ^
+                }"
                 """
             }
         }
