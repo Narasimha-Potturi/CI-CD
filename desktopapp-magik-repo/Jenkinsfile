@@ -10,7 +10,7 @@ pipeline {
         string(
             name: 'TARGET_ROOT',
             defaultValue: 'C:\\DesktopApp',
-            description: 'Target base folder where files should be deployed'
+            description: 'Target base folder where application exists / should be deployed'
         )
     }
 
@@ -32,9 +32,6 @@ pipeline {
                 echo ===== Current Commit =====
                 git rev-parse HEAD
                 git log -1 --oneline
-
-                echo ===== Last 5 Commits =====
-                git log -5 --oneline
                 """
             }
         }
@@ -56,37 +53,63 @@ pipeline {
             }
         }
 
-        stage('Verify Changed Files') {
+        stage('Check Target Directory') {
             steps {
                 script {
-                    def changes = readFile("${CHANGE_FILE}").trim().split("\\r?\\n")
+                    def status = bat(
+                        script: """
+                        powershell -NoProfile -ExecutionPolicy Bypass -Command ^
+                        "if (Test-Path '${params.TARGET_ROOT}') { exit 0 } else { exit 1 }"
+                        """,
+                        returnStatus: true
+                    )
 
-                    echo "Verifying changed files exist in workspace..."
-
-                    changes.each { f ->
-                        if (!fileExists(f)) {
-                            error "Changed file missing in workspace: ${f}"
-                        }
+                    if (status == 0) {
+                        env.TARGET_EXISTS = "true"
+                        echo "Target directory exists: ${params.TARGET_ROOT}"
+                    } else {
+                        env.TARGET_EXISTS = "false"
+                        echo "Target directory does NOT exist: ${params.TARGET_ROOT}"
                     }
-
-                    echo "All changed files exist in workspace."
                 }
             }
         }
 
-        stage('Deploy Changed Files') {
+        stage('Full Deploy (First Time)') {
+            when {
+                expression { env.TARGET_EXISTS == "false" }
+            }
             steps {
                 bat """
-                echo ===== Deploying Changed Files to ${params.TARGET_ROOT} =====
+                echo FULL DEPLOYMENT STARTED...
+
+                mkdir "${params.TARGET_ROOT}"
+
+                powershell -NoProfile -ExecutionPolicy Bypass -Command ^
+                "Copy-Item -Path .\\* -Destination '${params.TARGET_ROOT}' -Recurse -Force"
+                """
+            }
+        }
+
+        stage('Incremental Deploy (Changed Files Only)') {
+            when {
+                expression { env.TARGET_EXISTS == "true" }
+            }
+            steps {
+                bat """
+                echo INCREMENTAL DEPLOYMENT STARTED...
                 type ${CHANGE_FILE}
 
                 powershell -NoProfile -ExecutionPolicy Bypass -Command ^
                 "Get-Content '${CHANGE_FILE}' | ForEach-Object { ^
-                    Write-Host ('Deploying ' + $_); ^
-                    $dest = '${params.TARGET_ROOT}\\\\' + $_; ^
+                    $rel = $_; ^
+                    $src = Join-Path (Get-Location) $rel; ^
+                    $dest = Join-Path '${params.TARGET_ROOT}' $rel; ^
                     $destDir = Split-Path $dest -Parent; ^
-                    if (!(Test-Path $destDir)) { New-Item -ItemType Directory -Path $destDir -Force | Out-Null }; ^
-                    Copy-Item -Path $_ -Destination $dest -Force ^
+
+                    if (!(Test-Path $destDir)) { New-Item -ItemType Directory -Path $destDir -Force | Out-Null } ^
+                    if (Test-Path $dest) { Remove-Item $dest -Force } ^
+                    Copy-Item -Path $src -Destination $dest -Force ^
                 }"
                 """
             }
