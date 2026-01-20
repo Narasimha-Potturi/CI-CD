@@ -1,9 +1,6 @@
 pipeline {
-    agent {
-        node {
-            label 'windows-agent'
-        }
-    }
+    agent any
+
     parameters {
         string(
             name: 'TARGET_ROOT',
@@ -24,6 +21,19 @@ pipeline {
             }
         }
 
+        stage('Show Git Commit Details') {
+            steps {
+                bat """
+                echo ===== Current Commit =====
+                git rev-parse HEAD
+                git log -1 --oneline
+
+                echo ===== Last 5 Commits =====
+                git log -5 --oneline
+                """
+            }
+        }
+
         stage('Detect Changed Files') {
             steps {
                 script {
@@ -36,7 +46,7 @@ pipeline {
                         error "No changed files detected. Nothing to deploy."
                     }
 
-                    echo "Changed files detected:\\n${changes}"
+                    echo "Changed files detected:\n${changes}"
                 }
             }
         }
@@ -59,24 +69,29 @@ pipeline {
             }
         }
 
+        /*
         stage('Approval') {
             steps {
                 input message: "Approve deployment of changed files to ${params.TARGET_ROOT}?"
             }
         }
+        */
 
         stage('Deploy Changed Files') {
             steps {
                 bat """
+                echo ===== Deploying Changed Files to ${params.TARGET_ROOT} =====
+                type ${CHANGE_FILE}
+
                 for /f "usebackq delims=" %%f in ("${CHANGE_FILE}") do (
                     echo Deploying %%f
 
                     powershell -Command ^
-                    "$src='%%f'; ^
-                     $dest='${params.TARGET_ROOT}\\\\' + $src; ^
-                     $destDir=Split-Path $dest -Parent; ^
-                     if (!(Test-Path $destDir)) { New-Item -ItemType Directory -Path $destDir -Force | Out-Null }; ^
-                     Copy-Item -Path $src -Destination $dest -Force"
+                    "\\$src='%%f'; ^
+                     \\$dest='${params.TARGET_ROOT}\\\\' + \\$src; ^
+                     \\$destDir=Split-Path \\$dest -Parent; ^
+                     if (!(Test-Path \\$destDir)) { New-Item -ItemType Directory -Path \\$destDir -Force | Out-Null }; ^
+                     Copy-Item -Path \\$src -Destination \\$dest -Force"
                 )
                 """
             }
