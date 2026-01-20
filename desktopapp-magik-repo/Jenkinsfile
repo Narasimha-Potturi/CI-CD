@@ -16,6 +16,7 @@ pipeline {
 
     environment {
         CHANGE_FILE = "changed_files.txt"
+        TARGET_EXISTS = "false"
     }
 
     stages {
@@ -28,11 +29,11 @@ pipeline {
 
         stage('Show Git Commit Details') {
             steps {
-                bat """
+                bat '''
                 echo ===== Current Commit =====
                 git rev-parse HEAD
                 git log -1 --oneline
-                """
+                '''
             }
         }
 
@@ -96,22 +97,26 @@ pipeline {
                 expression { env.TARGET_EXISTS == "true" }
             }
             steps {
-                bat """
+                bat '''
                 echo INCREMENTAL DEPLOYMENT STARTED...
-                type ${CHANGE_FILE}
+                type changed_files.txt
 
                 powershell -NoProfile -ExecutionPolicy Bypass -Command ^
-                "Get-Content '${CHANGE_FILE}' | ForEach-Object { ^
+                "Get-Content 'changed_files.txt' | ForEach-Object { ^
                     $rel = $_; ^
                     $src = Join-Path (Get-Location) $rel; ^
-                    $dest = Join-Path '${params.TARGET_ROOT}' $rel; ^
+                    $dest = Join-Path '"${params.TARGET_ROOT}"' $rel; ^
                     $destDir = Split-Path $dest -Parent; ^
+
+                    Write-Host ('Deploying: ' + $rel); ^
+                    Write-Host ('Source   : ' + $src); ^
+                    Write-Host ('Dest     : ' + $dest); ^
 
                     if (!(Test-Path $destDir)) { New-Item -ItemType Directory -Path $destDir -Force | Out-Null } ^
                     if (Test-Path $dest) { Remove-Item $dest -Force } ^
                     Copy-Item -Path $src -Destination $dest -Force ^
                 }"
-                """
+                '''
             }
         }
     }
