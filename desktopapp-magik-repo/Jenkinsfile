@@ -1,5 +1,5 @@
 pipeline {
-    agent any
+    label 'windows-agent'
 
     parameters {
         string(
