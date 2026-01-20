@@ -1,0 +1,91 @@
+pipeline {
+    agent any
+
+    parameters {
+        string(
+            name: 'TARGET_ROOT',
+            defaultValue: 'C:\\DesktopApp',
+            description: 'Target base folder where files should be deployed'
+        )
+    }
+
+    environment {
+        CHANGE_FILE = "changed_files.txt"
+    }
+
+    stages {
+
+        stage('Checkout Source') {
+            steps {
+                checkout scm
+            }
+        }
+
+        stage('Detect Changed Files') {
+            steps {
+                script {
+                    bat """
+                    git diff --name-only HEAD~1 HEAD > ${CHANGE_FILE}
+                    """
+
+                    def changes = readFile("${CHANGE_FILE}").trim()
+                    if (!changes) {
+                        error "No changed files detected. Nothing to deploy."
+                    }
+
+                    echo "Changed files detected:\\n${changes}"
+                }
+            }
+        }
+
+        stage('Verify Changed Files') {
+            steps {
+                script {
+                    def changes = readFile("${CHANGE_FILE}").trim().split("\\r?\\n")
+
+                    echo "Verifying changed files exist in workspace..."
+
+                    changes.each { f ->
+                        if (!fileExists(f)) {
+                            error "Changed file missing in workspace: ${f}"
+                        }
+                    }
+
+                    echo "All changed files exist in workspace."
+                }
+            }
+        }
+
+        stage('Approval') {
+            steps {
+                input message: "Approve deployment of changed files to ${params.TARGET_ROOT}?"
+            }
+        }
+
+        stage('Deploy Changed Files') {
+            steps {
+                bat """
+                for /f "usebackq delims=" %%f in ("${CHANGE_FILE}") do (
+                    echo Deploying %%f
+
+                    powershell -Command ^
+                    "$src='%%f'; ^
+                     $dest='${params.TARGET_ROOT}\\\\' + $src; ^
+                     $destDir=Split-Path $dest -Parent; ^
+                     if (!(Test-Path $destDir)) { New-Item -ItemType Directory -Path $destDir -Force | Out-Null }; ^
+                     Copy-Item -Path $src -Destination $dest -Force"
+                )
+                """
+            }
+        }
+    }
+
+    post {
+        success {
+            echo "Deployment completed successfully to ${params.TARGET_ROOT}"
+        }
+        failure {
+            echo "Deployment failed."
+        }
+    }
+}

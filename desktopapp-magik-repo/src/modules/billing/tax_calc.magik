@@ -1,0 +1,5 @@
+# tax_calc.magik (sample)
+_method calculate_tax(amount)
+  _print("Calculating tax for amount: " + amount.as_string())
+  _return amount * 0.18
+_endmethod

@@ -1,0 +1,4 @@
+# utils.magik (sample)
+_method log_message(msg)
+  _print("LOG: " + msg)
+_endmethod

@@ -1,0 +1,5 @@
+# login.magik (sample)
+_method login(user, pass)
+  _print("Login called for user: " + user)
+  _return true
+_endmethod

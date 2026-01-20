@@ -1,0 +1,5 @@
+# login_helper.magik (sample)
+_method validate_user(user)
+  _print("Validating user: " + user)
+  _return true
+_endmethod
